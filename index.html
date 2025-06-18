@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>インベーダーゲーム</title>
+  <style>
+    body { margin: 0; background: black; overflow: hidden; }
+    canvas { display: block; margin: auto; background: #111; border: 2px solid #555; }
+  </style>
+</head>
+<body>
+<canvas id="gameCanvas" width="480" height="640"></canvas>
+<script>
+(() => {
+  const canvas = document.getElementById("gameCanvas");
+  const ctx = canvas.getContext("2d");
+
+  const WIDTH = canvas.width;
+  const HEIGHT = canvas.height;
+
+  const player = {
+    x: WIDTH / 2,
+    y: HEIGHT - 70,
+    width: 60,
+    height: 40,
+    speed: 5,
+    canShoot: true,
+    life: 3,
+    left: false,
+    right: false,
+  };
+
+  const bullets = [];
+  const enemyBullets = [];
+  const particles = [];
+
+  const invaders = [];
+  const ROWS = 5;
+  const COLS = 10;
+  const invaderWidth = 30;
+  const invaderHeight = 20;
+  const invaderPadding = 15;
+  const invaderOffsetTop = 40;
+  const invaderOffsetLeft = 30;
+  let invaderDirection = 1;
+  let invaderSpeed = 0.7;
+  let invaderDescend = 10;
+
+  let gameOver = false;
+  let gameStarted = false;
+  let score = 0;
+  let attackTimer = 0;
+  let screenFlashTimer = 0;
+
+  function createInvaders() {
+    invaders.length = 0;
+    for (let r = 0; r < ROWS; r++) {
+      for (let c = 0; c < COLS; c++) {
+        invaders.push({
+          x: invaderOffsetLeft + c * (invaderWidth + invaderPadding),
+          y: invaderOffsetTop + r * (invaderHeight + invaderPadding),
+          width: invaderWidth,
+          height: invaderHeight,
+          alive: true,
+          attacker: Math.random() < 0.3,
+        });
+      }
+    }
+  }
+
+  function startGame() {
+    player.x = WIDTH / 2;
+    player.life = 3;
+    bullets.length = 0;
+    enemyBullets.length = 0;
+    particles.length = 0;
+    createInvaders();
+    invaderDirection = 1;
+    gameOver = false;
+    score = 0;
+    attackTimer = 0;
+    gameStarted = true;
+  }
+
+  window.addEventListener("keydown", (e) => {
+    if (!gameStarted || gameOver) {
+      if (e.code === "Enter") startGame();
+      return;
+    }
+    if (e.code === "ArrowLeft" || e.code === "KeyA") player.left = true;
+    if (e.code === "ArrowRight" || e.code === "KeyD") player.right = true;
+    if (e.code === "Space") shoot();
+  });
+
+  window.addEventListener("keyup", (e) => {
+    if (e.code === "ArrowLeft" || e.code === "KeyA") player.left = false;
+    if (e.code === "ArrowRight" || e.code === "KeyD") player.right = false;
+  });
+
+  function shoot() {
+    if (!player.canShoot || gameOver) return;
+    bullets.push({
+      x: player.x - 3,
+      y: player.y - player.height / 2,
+      width: 6,
+      height: 12,
+      speed: 7,
+    });
+    player.canShoot = false;
+    setTimeout(() => player.canShoot = true, 300);
+  }
+
+  function createSimpleExplosion(x, y) {
+    for (let i = 0; i < 20; i++) {
+      particles.push({
+        x: x,
+        y: y,
+        dx: (Math.random() - 0.5) * 6,
+        dy: (Math.random() - 0.5) * 6,
+        life: 40,
+        color: "white",
+      });
+    }
+  }
+
+  function update() {
+    if (!gameStarted || gameOver) return;
+
+    if (player.left) player.x = Math.max(player.width / 2, player.x - player.speed);
+    if (player.right) player.x = Math.min(WIDTH - player.width / 2, player.x + player.speed);
+
+    bullets.forEach((b, i) => {
+      b.y -= b.speed;
+      if (b.y + b.height < 0) bullets.splice(i, 1);
+    });
+
+    attackTimer++;
+    if (attackTimer > 150) {
+      const shooters = invaders.filter(i => i.alive && i.attacker);
+      if (shooters.length > 0) {
+        const shooter = shooters[Math.floor(Math.random() * shooters.length)];
+        enemyBullets.push({
+          x: shooter.x + shooter.width / 2 - 2,
+          y: shooter.y + shooter.height,
+          width: 4,
+          height: 10,
+          speed: 4,
+        });
+      }
+      attackTimer = 0;
+    }
+
+    enemyBullets.forEach((b, i) => {
+      b.y += b.speed;
+      if (b.y > HEIGHT) enemyBullets.splice(i, 1);
+    });
+
+    let right = 0, left = WIDTH;
+    invaders.forEach(inv => {
+      if (!inv.alive) return;
+      right = Math.max(right, inv.x + inv.width);
+      left = Math.min(left, inv.x);
+    });
+
+    if (right >= WIDTH - 10 || left <= 10) {
+      invaderDirection *= -1;
+      invaders.forEach(inv => inv.y += invaderDescend);
+    }
+
+    invaders.forEach(inv => {
+      if (inv.alive) {
+        inv.x += invaderSpeed * invaderDirection;
+        if (inv.y + inv.height >= player.y) gameOver = true;
+      }
+    });
+
+    bullets.forEach((b, bi) => {
+      invaders.forEach(inv => {
+        if (inv.alive &&
+            b.x < inv.x + inv.width &&
+            b.x + b.width > inv.x &&
+            b.y < inv.y + inv.height &&
+            b.y + b.height > inv.y) {
+          inv.alive = false;
+          bullets.splice(bi, 1);
+          score += 10;
+          createSimpleExplosion(inv.x + inv.width / 2, inv.y + inv.height / 2);
+        }
+      });
+    });
+
+    enemyBullets.forEach((b, bi) => {
+      if (
+        b.x < player.x + player.width / 2 &&
+        b.x + b.width > player.x - player.width / 2 &&
+        b.y < player.y + player.height / 2 &&
+        b.y + b.height > player.y - player.height / 2
+      ) {
+        enemyBullets.splice(bi, 1);
+        player.life--;
+        screenFlashTimer = 10;
+        if (player.life <= 0) {
+          gameOver = true;
+        }
+      }
+    });
+
+    if (invaders.every(i => !i.alive)) {
+      alert("クリア！すごい！");
+      gameOver = true;
+    }
+
+    particles.forEach((p, i) => {
+      p.x += p.dx;
+      p.y += p.dy;
+      p.life--;
+      if (p.life <= 0) particles.splice(i, 1);
+    });
+  }
+
+  function drawPlayer(x, y) {
+    // 凸型プレイヤー：下が60×20の長方形、上に20×20の正方形
+    ctx.fillStyle = "lime";
+    ctx.fillRect(x - 30, y, 60, 20); // 下の長方形
+    ctx.fillRect(x - 10, y - 20, 20, 20); // 上の正方形
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+
+    if (!gameStarted) {
+      ctx.fillStyle = "white";
+      ctx.font = "28px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("Press Enter to Start", WIDTH / 2, HEIGHT / 2 - 40);
+
+      ctx.font = "20px monospace";
+      ctx.fillText("操作方法：", WIDTH / 2, HEIGHT / 2);
+      ctx.font = "16px monospace";
+      ctx.fillText("← → または A D キーで移動", WIDTH / 2, HEIGHT / 2 + 25);
+      ctx.fillText("Space キーで射撃", WIDTH / 2, HEIGHT / 2 + 50);
+      ctx.fillText("敵の攻撃をよけてライフを守ろう！", WIDTH / 2, HEIGHT / 2 + 75);
+      return;
+    }
+
+    drawPlayer(player.x, player.y);
+
+    ctx.fillStyle = "yellow";
+    bullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+
+    ctx.fillStyle = "cyan";
+    enemyBullets.forEach(b => ctx.fillRect(b.x, b.y, b.width, b.height));
+
+    invaders.forEach(inv => {
+      if (!inv.alive) return;
+      ctx.fillStyle = inv.attacker ? "purple" : "red";
+      ctx.fillRect(inv.x, inv.y, inv.width, inv.height);
+    });
+
+    ctx.fillStyle = "white";
+    ctx.font = "18px monospace";
+    ctx.textAlign = "left";
+    ctx.fillText("Score: " + score, 10, 25);
+    ctx.fillText("Life: " + "♥".repeat(player.life), 10, 50);
+
+    particles.forEach(p => {
+      ctx.fillStyle = p.color;
+      ctx.fillRect(p.x, p.y, 4, 4);
+    });
+
+    if (screenFlashTimer > 0) {
+      ctx.fillStyle = "rgba(255, 50, 0, 0.3)";
+      ctx.fillRect(0, 0, WIDTH, HEIGHT);
+      screenFlashTimer--;
+    }
+
+    if (gameOver) {
+      ctx.fillStyle = "white";
+      ctx.font = "36px monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("GAME OVER", WIDTH / 2, HEIGHT / 2 - 20);
+      ctx.font = "20px monospace";
+      ctx.fillText("Press Enter to Restart", WIDTH / 2, HEIGHT / 2 + 20);
+    }
+  }
+
+  function loop() {
+    update();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  loop();
+})();
+</script>
+</body>
+</html>
