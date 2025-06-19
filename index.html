@@ -226,23 +226,27 @@
   }
 
   function draw() {
-    ctx.clearRect(0, 0, WIDTH, HEIGHT);
+  ctx.clearRect(0, 0, WIDTH, HEIGHT);
 
-    if (!gameStarted) {
-      ctx.fillStyle = "white";
-      ctx.font = "28px monospace";
-      ctx.textAlign = "center";
-      ctx.fillText("INVADER", WIDTH / 2, HEIGHT / 2 - 20);
-      ctx.fillText("Press Enter to Start", WIDTH / 2, HEIGHT / 2 - 40);
+  if (!gameStarted) {
+    ctx.fillStyle = "white";
+    ctx.font = "28px monospace";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";  // ここ追加！
 
-      ctx.font = "20px monospace";
-      ctx.fillText("操作方法：", WIDTH / 2, HEIGHT / 2);
-      ctx.font = "16px monospace";
-      ctx.fillText("← → または A D キーで移動", WIDTH / 2, HEIGHT / 2 + 25);
-      ctx.fillText("Space キーで射撃", WIDTH / 2, HEIGHT / 2 + 50);
-      ctx.fillText("敵の攻撃をよけてライフを守ろう！", WIDTH / 2, HEIGHT / 2 + 75);
-      return;
-    }
+    ctx.fillText("INVADER", WIDTH / 2, HEIGHT / 2 - 60);            // タイトル
+    ctx.fillText("Press Enter to Start", WIDTH / 2, HEIGHT / 2 - 30); // スタート案内
+
+    ctx.font = "20px monospace";
+    ctx.fillText("操作方法：", WIDTH / 2, HEIGHT / 2 + 10);
+
+    ctx.font = "16px monospace";
+    ctx.fillText("← → または A D キーで移動", WIDTH / 2, HEIGHT / 2 + 35);
+    ctx.fillText("Space キーで射撃", WIDTH / 2, HEIGHT / 2 + 60);
+    ctx.fillText("敵の攻撃をよけてライフを守ろう！", WIDTH / 2, HEIGHT / 2 + 85);
+
+    return;
+  }
 
     drawPlayer(player.x, player.y);
 
